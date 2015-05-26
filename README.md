@@ -46,11 +46,15 @@ env_setup_vm(struct Env *e)
        e->env_cr3 = page2pa(p);
        static_assert(UTOP % PDMAP == 0);
        for (i = PDX(UTOP); i <= PDX(~0); i++)
+       
          (Hint1:这里为什么是UTOP,而不是ULIM,UTOP--->ULIM这段区域是干什么用的?)
+         
          e->env_pgdir[i] = boot_pgdir[i];
        e->env_pgdir[PDX(VPT)]   = e->env_cr3 ;
        e->env_pgdir[PDX(UVPT)]  = e->env_cr3 ;
+       
        (Hint2:为什么这里要让pgdir[PDX(UVPT)]=e->env_cr3?还记得windows的自映射方案吗?)
+       
        return 0;
 }
 ```
@@ -76,7 +80,7 @@ o            USTACKTOP ----> +----------------------------+------------ 0x7f3fe0
 o                         　　　　|     normal user stack            |     BY2PG                 　　 
 o                     　　　  +----------------------------+------------0x7f3fd000    
 a                      　　　　   |                            　　  |
-```
+```  
 `UVPT`即`User Virtual Page Table`,根据字面意思理解,它是用户页表域的那4M虚拟空间。
 其余内容稍候补充...
 
@@ -100,9 +104,13 @@ int env_alloc(struct Env **new, u_int parent_id)
         /*4. focus on initializing env_tf structure, located at this new Env. especially the sp register,
          * CPU status and PC register(the value of PC can refer the comment of load_icode function)*/
        currentE->env_tf.regs[29] = USTACKTOP;
+       
         (Hint1:为什么pc是UTEXT+0xb0?改成其他可行吗?)
+        
         currentE->env_tf.pc = UTEXT + 0xb0;
-        (Hint2:R3000的SR寄存器与MIPSR4000及以后的版本略有不同,为什么这里是0x10001004? 仔细观察后6位,你是否发现了一个栈?)
+        
+        (Hint2:R3000的SR寄存器与MIPSR4000及以后的版本略有不同,为什么这里是0x10001004?试着改成0x10001005,仔细观察后6位)
+        
         currentE->env_tf.cp0_status = 0x10001004;
         /*5. remove the new Env from Env free list*/
         LIST_REMOVE(currentE,env_link);
@@ -130,7 +138,9 @@ load_icode(struct Env *e, u_char *binary, u_int size)
              if((r= page_insert(e->env_pgdir,page,currentpg,PTE_V))<0)
                 return;
              bzero(page2kva(page),BY2PG);
-             (Hint:这里不按BY2PG为单位分配可以不可以,什么情况下可以,什么情况下不可以?会有什么样的问题出现?)
+             
+            (Hint:这里不按BY2PG为单位分配可以不可以,什么情况下可以,什么情况下不可以?会有什么样的问题出现?)
+            
              (Hint:这里为什么是用page2kva(page),而不是用UTEXT段copy?)
              bcopy((void *)binary,page2kva(page),BY2PG);
              binary += BY2PG;
@@ -140,7 +150,9 @@ load_icode(struct Env *e, u_char *binary, u_int size)
         (eg,page_insert or bcopy.etc)*/
         struct Page *stack;
         page_alloc(&stack);
+        
         (Hint:PTE_R代表什么意义?这里不用PTE_R设权限会在什么时候出现问题?)
+        
         page_insert(e->env_pgdir,stack,(USTACKTOP-BY2PG),PTE_V|PTE_R);
         /*2. make sure PC(env_tf.pc) point to UTEXT + 0xb0, this is very import, or your code is not executed correctly when your process(namely Env) is dispatched by CPU*/
         assert(e->env_tf.pc == UTEXT+0xb0);
@@ -161,9 +173,13 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
                 if(pa2page(*pgtable_entry)!=pp) page_remove(pgdir,va);
                 else
                 {
+                
                         (Hint:为什么多次出现了tlb_invalidate函数?这个函数作用是什么?)
+                        
                         tlb_invalidate(pgdir, va);
+                        
                         (Hint:这里为什么要强调权限位的重新设置?)
+                        
                         *pgtable_entry = (page2pa(pp)|PERM);
                         return 0;
                 }
