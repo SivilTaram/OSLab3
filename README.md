@@ -194,3 +194,37 @@ page_insert(Pde *pgdir, struct Page *pp, u_long va, u_int perm)
         return 0;
 }
 ```
+```C
+//
+// Context switch from curenv to env e.
+// Note: if this is the first call to env_run, curenv is NULL.
+//  (This function does not return.)
+//
+void
+env_run(struct Env *e)
+{
+
+
+	//** Your Question Here **
+	// step 1: save register state of curenv
+	struct Trapframe*  old;
+	old=(struct Trapframe*)(TIMESTACK-sizeof(struct Trapframe));
+	if(curenv)
+	{	
+		bcopy(old,&curenv->env_tf,sizeof(struct Trapframe));
+		curenv->env_tf.pc=old->cp0_epc;
+	}
+
+
+	// step 2: set curenv
+
+
+	// step 3: use lcr3
+
+
+	// step 4: use env_pop_tf()
+
+	env_pop_tf(&(curenv->env_tf),GET_ENV_ASID(curenv->env_id));
+	
+}
+```
